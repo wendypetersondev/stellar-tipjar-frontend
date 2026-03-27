@@ -14,6 +14,9 @@ import { formatUsername } from "@/utils/format";
 import { generateAvatarUrl } from "@/utils/imageUtils";
 import { buildMetadata, creatorProfileJsonLd } from "@/utils/seo";
 import { OptimizedImage } from "@/components/OptimizedImage";
+import { TagBadge } from "@/components/TagBadge";
+import { TagCloud } from "@/components/TagCloud";
+import { generateTagCloud } from "@/utils/categories";
 import { PortfolioSection } from "@/components/portfolio/PortfolioSection";
 
 interface CreatorPageProps {

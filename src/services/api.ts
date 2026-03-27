@@ -11,8 +11,6 @@ export interface CreatorProfile {
   preferredAsset: string;
   categories: string[];
   tags: string[];
-  goalAmount?: number;
-  milestones?: number[];
 }
 
 

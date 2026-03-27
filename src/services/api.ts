@@ -368,3 +368,35 @@ export async function reportComment(commentId: string): Promise<void> {
     // best-effort
   }
 }
+
+export interface PortfolioItem {
+  id: string;
+  type: "image" | "video";
+  url: string;
+  title: string;
+  description?: string;
+}
+
+export async function getPortfolio(username: string): Promise<PortfolioItem[]> {
+  try {
+    return await request<PortfolioItem[]>(`/creators/${username}/portfolio`, undefined, {
+      critical: false,
+    });
+  } catch {
+    return [];
+  }
+}
+
+export async function addPortfolioItem(
+  username: string,
+  item: Omit<PortfolioItem, "id">,
+): Promise<PortfolioItem> {
+  return request<PortfolioItem>(`/creators/${username}/portfolio`, {
+    method: "POST",
+    body: JSON.stringify(item),
+  });
+}
+
+export async function deletePortfolioItem(username: string, itemId: string): Promise<void> {
+  await request<void>(`/creators/${username}/portfolio/${itemId}`, { method: "DELETE" });
+}

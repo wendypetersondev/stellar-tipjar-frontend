@@ -13,6 +13,7 @@ import { formatUsername } from "@/utils/format";
 import { generateAvatarUrl } from "@/utils/imageUtils";
 import { buildMetadata, creatorProfileJsonLd } from "@/utils/seo";
 import { OptimizedImage } from "@/components/OptimizedImage";
+import { PortfolioSection } from "@/components/portfolio/PortfolioSection";
 
 interface CreatorPageProps {
   params: {
@@ -99,6 +100,11 @@ export default async function CreatorPage({ params }: CreatorPageProps) {
       </div>
 
       <TipComments creatorUsername={profile.username} />
+
+      <div>
+        <h2 className="mb-4 text-xl font-semibold text-ink">Portfolio</h2>
+        <PortfolioSection username={profile.username} />
+      </div>
 
       <CreatorPageRecommendations username={profile.username} />
     </section>

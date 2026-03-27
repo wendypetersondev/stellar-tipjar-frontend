@@ -8,7 +8,7 @@ const navLinks = [
   { href: "/", label: "Home" },
   { href: "/explore", label: "Explore Creators" },
   { href: "/tips", label: "Send Tips" },
-  { href: "/activity", label: "Activity" },
+  { href: "/widgets", label: "Widgets" },
 ] as const;
 
 export function Navbar() {

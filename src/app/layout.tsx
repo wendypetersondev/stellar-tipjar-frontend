@@ -12,6 +12,8 @@ import { WalletProvider } from "@/contexts/WalletContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { WebSocketProvider } from "@/contexts/WebSocketContext";
 import { I18nProvider } from "@/components/I18nProvider";
+import { ToastProvider } from "@/contexts/ToastContext";
+import { ToastContainer } from "@/components/Toast";
 import "@/styles/globals.css";
 import { buildMetadata } from "@/utils/seo";
 
@@ -57,6 +59,7 @@ export default function RootLayout({
         <WalletProvider>
           <ReactQueryProvider>
             <WebSocketProvider>
+              <ToastProvider>
               <div className="min-h-screen">
                 <Navbar />
                 <main
@@ -68,6 +71,8 @@ export default function RootLayout({
                 </main>
               </div>
               <InstallPrompt />
+              <ToastContainer />
+              </ToastProvider>
             </WebSocketProvider>
           </ReactQueryProvider>
         </WalletProvider>

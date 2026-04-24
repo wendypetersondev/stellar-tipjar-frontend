@@ -28,7 +28,7 @@ export function SearchBar({ value, onChange, placeholder = "Search...", classNam
   };
 
   return (
-    <div className={`relative ${className}`}>
+    <div role="search" className={`relative ${className}`}>
       <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
         <svg
           className="h-5 w-5 text-ink/40"

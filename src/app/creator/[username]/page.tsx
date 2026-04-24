@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { Button } from "@/components/Button";
+import { ReportButton } from "@/components/ReportButton";
 import { TipForm } from "@/components/forms/TipForm";
 import { CreatorStatsDashboard } from "@/components/stats/CreatorStatsDashboard";
 import { TipComments } from "@/components/TipComments";
@@ -83,6 +84,15 @@ function CreatorPageClient({ username, profile }: { username: string; profile: a
         isVerified={profile.isVerified}
       />
 
+        <div className="mt-8 flex flex-wrap gap-3">
+          <Link href="/tips">
+            <Button>Tip This Creator</Button>
+          </Link>
+          <Link href="/explore">
+            <Button variant="ghost">Back to Explore</Button>
+          </Link>
+          <ReportButton targetUser={profile.username} />
+        </div>
       <CreatorShare username={profile.username} displayName={profile.displayName} />
 
       {(profile.categories?.length || profile.tags?.length) > 0 && (

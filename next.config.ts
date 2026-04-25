@@ -25,6 +25,20 @@ const nextConfig: NextConfig = {
         port: "",
         pathname: "/**",
       },
+      // CDN integration — add your CDN hostname here
+      {
+        protocol: "https",
+        hostname: "cdn.stellartipjar.app",
+        port: "",
+        pathname: "/**",
+      },
+      // Allow common avatar/image CDNs used in development
+      {
+        protocol: "https",
+        hostname: "avatars.githubusercontent.com",
+        port: "",
+        pathname: "/**",
+      },
     ],
   },
 
@@ -34,6 +48,16 @@ const nextConfig: NextConfig = {
         // Apply security headers to every route
         source: "/:path*",
         headers: getSecurityHeaders(),
+      },
+      {
+        // iOS Universal Links — must be served as application/json
+        source: "/.well-known/apple-app-site-association",
+        headers: [{ key: "Content-Type", value: "application/json" }],
+      },
+      {
+        // Android App Links — must be served as application/json
+        source: "/.well-known/assetlinks.json",
+        headers: [{ key: "Content-Type", value: "application/json" }],
       },
     ];
   },

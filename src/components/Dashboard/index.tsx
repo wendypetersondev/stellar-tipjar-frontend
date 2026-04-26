@@ -5,11 +5,7 @@ import { Download } from "lucide-react";
 
 import { Button } from "@/components/Button";
 import { KPICard } from "./KPICard";
-import { TipTrendChart } from "./TipTrendChart";
-import { TopSupportersChart } from "./TopSupportersChart";
-import { DistributionChart } from "./DistributionChart";
 import { GrowthMetricsPanel } from "./GrowthMetricsPanel";
-import { RevenueBreakdownChart } from "./RevenueBreakdownChart";
 import { SupporterInsightsTable } from "./SupporterInsightsTable";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import { EmptyState } from "@/components/EmptyState";
@@ -17,6 +13,17 @@ import { exportToCSV } from "@/utils/exportCSV";
 import { exportToExcel } from "@/utils/exportExcel";
 import { TipHeatmapCalendar } from "@/components/TipHeatmapCalendar";
 import { useHeatmapData } from "@/hooks/queries/useHeatmapData";
+
+// Advanced chart components
+import {
+  TipTrendChart,
+  RevenueBreakdownChart,
+  TopSupportersChart,
+  DistributionChart,
+  SupporterRetentionChart,
+  RealtimeTipFeed,
+  SupporterHeatmap,
+} from "@/components/charts";
 
 const DATE_PRESETS = [
   { label: "7d", days: 7 },
@@ -37,19 +44,18 @@ export function Dashboard({ username = "me" }: DashboardProps) {
   const [preset, setPreset] = useState(30);
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [showRealtime, setShowRealtime] = useState(false);
 
   const dateRange = useMemo(() => {
     if (customStart && customEnd) {
       return { start: new Date(customStart), end: new Date(customEnd) };
     }
-
     if (preset > 0) {
       return {
         start: new Date(Date.now() - preset * 86_400_000),
         end: new Date(),
       };
     }
-
     return undefined;
   }, [customStart, customEnd, preset]);
 
@@ -61,16 +67,14 @@ export function Dashboard({ username = "me" }: DashboardProps) {
 
   const handleExportCSV = () => {
     if (!data) return;
-    const csvRows = data.revenueData.map((row) => ({
-      date: row.date,
-      grossRevenue: row.gross,
-      netRevenue: row.net,
-      recurringRevenue: row.recurring,
-      oneTimeRevenue: row.oneTime,
-    }));
-
     exportToCSV(
-      csvRows,
+      data.revenueData.map((row) => ({
+        date: row.date,
+        grossRevenue: row.gross,
+        netRevenue: row.net,
+        recurringRevenue: row.recurring,
+        oneTimeRevenue: row.oneTime,
+      })),
       [
         { key: "date", label: "Date" },
         { key: "grossRevenue", label: "Gross Revenue (XLM)" },
@@ -84,19 +88,16 @@ export function Dashboard({ username = "me" }: DashboardProps) {
 
   const handleExportExcel = () => {
     if (!data) return;
-
-    const rows = data.revenueData.map((d) => ({
-      date: d.date,
-      amount: d.gross,
-      recipient: username,
-      sender: "dashboard-analytics",
-      status: "completed" as const,
-      memo: `Net ${d.net} | Recurring ${d.recurring}`,
-      transactionHash: undefined,
-    }));
-
     exportToExcel(
-      rows as Parameters<typeof exportToExcel>[0],
+      data.revenueData.map((d) => ({
+        date: d.date,
+        amount: d.gross,
+        recipient: username,
+        sender: "dashboard-analytics",
+        status: "completed" as const,
+        memo: `Net ${d.net} | Recurring ${d.recurring}`,
+        transactionHash: undefined,
+      })),
       "creator-analytics-export.xlsx",
     );
   };
@@ -129,10 +130,15 @@ export function Dashboard({ username = "me" }: DashboardProps) {
   if (!data && loading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-32 rounded-xl bg-ink/5 animate-pulse" />
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-32 animate-pulse rounded-xl bg-ink/5" />
           ))}
+        </div>
+        <div className="h-80 animate-pulse rounded-xl bg-ink/5" />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="h-80 animate-pulse rounded-xl bg-ink/5" />
+          <div className="h-80 animate-pulse rounded-xl bg-ink/5" />
         </div>
       </div>
     );
@@ -152,17 +158,18 @@ export function Dashboard({ username = "me" }: DashboardProps) {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      {/* ── Header ── */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-ink">
-            Creator Analytics Dashboard
-          </h1>
-          <p className="text-ink/70 mt-1">
-            Revenue, supporter behavior, and growth insights
+          <h1 className="text-3xl font-bold text-ink">Creator Analytics</h1>
+          <p className="mt-1 text-ink/60">
+            Revenue, supporter behaviour, and growth insights
           </p>
         </div>
+
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-lg border border-ink/10 overflow-hidden">
+          {/* Date presets */}
+          <div className="flex overflow-hidden rounded-lg border border-ink/10">
             {DATE_PRESETS.map(({ label, days }) => (
               <button
                 key={label}
@@ -183,8 +190,8 @@ export function Dashboard({ username = "me" }: DashboardProps) {
             type="date"
             value={customStart}
             max={customEnd || undefined}
-            onChange={(event) => setCustomStart(event.target.value)}
-            className="rounded-lg border border-ink/15 px-3 py-2 text-sm bg-transparent"
+            onChange={(e) => setCustomStart(e.target.value)}
+            className="rounded-lg border border-ink/15 bg-transparent px-3 py-2 text-sm"
           />
           <label className="text-sm text-ink/70">To</label>
           <input
@@ -192,13 +199,31 @@ export function Dashboard({ username = "me" }: DashboardProps) {
             value={customEnd}
             min={customStart || undefined}
             max={formatDateInput(new Date())}
-            onChange={(event) => setCustomEnd(event.target.value)}
-            className="rounded-lg border border-ink/15 px-3 py-2 text-sm bg-transparent"
+            onChange={(e) => setCustomEnd(e.target.value)}
+            className="rounded-lg border border-ink/15 bg-transparent px-3 py-2 text-sm"
           />
 
           <Button variant="ghost" size="sm" onClick={applyLast30Days}>
             Reset
           </Button>
+
+          {/* Live toggle */}
+          <button
+            onClick={() => setShowRealtime((v) => !v)}
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
+              showRealtime
+                ? "border-moss/40 bg-moss/10 text-moss"
+                : "border-ink/10 text-ink/60 hover:bg-ink/5"
+            }`}
+          >
+            <span
+              className={`inline-block h-1.5 w-1.5 rounded-full ${
+                showRealtime ? "animate-pulse bg-moss" : "bg-ink/30"
+              }`}
+            />
+            Live
+          </button>
+
           <Button
             variant="ghost"
             size="sm"
@@ -215,7 +240,8 @@ export function Dashboard({ username = "me" }: DashboardProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* ── KPI Cards ── */}
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         <KPICard
           title="Total Revenue (XLM)"
           value={data.totalTips}
@@ -242,40 +268,69 @@ export function Dashboard({ username = "me" }: DashboardProps) {
         />
       </div>
 
+      {/* ── Growth metrics ── */}
       <GrowthMetricsPanel metrics={data.growthMetrics} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="rounded-xl border border-ink/10 bg-[color:var(--surface)] p-6">
-          <h2 className="text-lg font-semibold text-ink mb-4">Revenue Trend</h2>
-          <TipTrendChart data={data.trendData} loading={loading} />
-        </div>
-        <div className="rounded-xl border border-ink/10 bg-[color:var(--surface)] p-6">
-          <h2 className="text-lg font-semibold text-ink mb-4">
-            Top Supporters
-          </h2>
-          <TopSupportersChart data={data.supportersData} loading={loading} />
-        </div>
+      {/* ── Real-time feed (conditional) ── */}
+      {showRealtime && (
+        <RealtimeTipFeed
+          pollIntervalMs={3000}
+          windowSize={25}
+          enabled={showRealtime}
+        />
+      )}
+
+      {/* ── Tip Trend (advanced) ── */}
+      <TipTrendChart
+        data={data.trendData}
+        loading={loading}
+        title="Tip Revenue Trend"
+        description="Daily tip volume — switch chart type or drag the brush to zoom"
+        onExport={handleExportCSV}
+      />
+
+      {/* ── Revenue Breakdown + Top Supporters ── */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <RevenueBreakdownChart
+          data={data.revenueData}
+          loading={loading}
+          onExport={handleExportCSV}
+        />
+        <TopSupportersChart
+          data={data.supportersData}
+          loading={loading}
+          onExport={handleExportCSV}
+        />
       </div>
 
-      <div className="rounded-xl border border-ink/10 bg-[color:var(--surface)] p-6">
-        <h2 className="text-lg font-semibold text-ink mb-4">
-          Revenue Breakdown
-        </h2>
-        <RevenueBreakdownChart data={data.revenueData} loading={loading} />
+      {/* ── Distribution + Retention Radar ── */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <DistributionChart
+          data={data.distributionData}
+          loading={loading}
+          onExport={handleExportCSV}
+        />
+        <SupporterRetentionChart
+          metrics={data.growthMetrics}
+          prevMetrics={data.prevGrowthMetrics}
+          loading={loading}
+          onExport={handleExportCSV}
+        />
       </div>
 
+      {/* ── Activity Heatmap ── */}
+      <SupporterHeatmap
+        data={data.heatmapData ?? []}
+        loading={loading}
+        onExport={handleExportCSV}
+      />
+
+      {/* ── Supporter Insights Table ── */}
       <div className="rounded-xl border border-ink/10 bg-[color:var(--surface)] p-6">
-        <h2 className="text-lg font-semibold text-ink mb-4">
+        <h2 className="mb-4 text-lg font-semibold text-ink">
           Supporter Analytics
         </h2>
         <SupporterInsightsTable rows={data.supporterInsights} />
-      </div>
-
-      <div className="rounded-xl border border-ink/10 bg-[color:var(--surface)] p-6">
-        <h2 className="text-lg font-semibold text-ink mb-4">
-          Revenue Source Distribution
-        </h2>
-        <DistributionChart data={data.distributionData} loading={loading} />
       </div>
 
       <div>

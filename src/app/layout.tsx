@@ -15,6 +15,8 @@ import { ToastContainer } from "@/components/Toast";
 import { Footer } from "@/components/Footer";
 import { UpdatePrompt } from "@/components/UpdatePrompt";
 import { PWAInitializer } from "@/components/PWAInitializer";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { I18nProvider } from "@/components/I18nProvider";
 import "@/styles/globals.css";
 
 const inter = Inter({ subsets: ["latin"] });

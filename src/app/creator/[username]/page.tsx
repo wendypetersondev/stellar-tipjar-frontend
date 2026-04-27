@@ -104,7 +104,7 @@ function CreatorPageClient({ username, profile }: { username: string; profile: a
           <p className="mb-3 text-sm font-semibold uppercase tracking-wide text-wave">Categories & Tags</p>
           <div className="flex flex-wrap gap-2 mb-4">
             {profile.categories?.map((cat) => (
-              <TagBadge key={cat} tag={cat} variant="category" />
+              <TagBadge key={cat} tag={cat} size="md" className="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border-indigo-400/30 text-indigo-700 dark:text-indigo-300" />
             ))}
             {profile.tags?.slice(0, 6).map((tag) => (
               <TagBadge key={tag} tag={tag} />
@@ -148,7 +148,7 @@ function CreatorPageClient({ username, profile }: { username: string; profile: a
         <CreatorStatsDashboard username={profile.username} />
       </div>
 
-      <TipTiers />
+      <PortfolioSection username={profile.username} />
 
       <TipComments creatorUsername={profile.username} />
 

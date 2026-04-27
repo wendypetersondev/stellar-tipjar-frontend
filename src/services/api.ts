@@ -1,5 +1,6 @@
 import { RequestQueue } from "@/utils/requestQueue";
 import { RateLimiter } from "@/utils/rateLimiter";
+import type { TagWithCount } from "@/utils/categories";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const DEFAULT_RETRIES = 3;
@@ -355,11 +356,25 @@ export async function searchCreatorsByTag(query: string): Promise<CreatorProfile
   try {
     return await request<CreatorProfile[]>(`/creators/search/tag?q=${encodeURIComponent(query)}`);
   } catch {
-    // Mock filter
+    // Mock filter - create mock profiles here since mockProfiles is scoped to getCreatorProfile
     const allCreators: CreatorProfile[] = [
-      ...Object.values(mockProfiles),
+      {
+        username: 'alice',
+        displayName: 'Alice the Artist',
+        bio: 'Digital artist creating NFT masterpieces on Stellar.',
+        preferredAsset: 'XLM',
+        categories: ['art'],
+        tags: ['nft-art', 'digital-art', 'generative-art'],
+      },
+      {
+        username: 'stellar-dev',
+        displayName: 'Stellar Dev',
+        bio: 'Building the future of payments on Stellar.',
+        preferredAsset: 'XLM',
+        categories: ['tech'],
+        tags: ['soroban', 'smart-contracts', 'stellar'],
+      },
       { username: 'pixelmaker', displayName: 'Pixel Maker', bio: 'Pixel art creator', preferredAsset: 'XLM', categories: ['art'], tags: ['pixel-art', 'nft'] },
-      // add more from explore mocks
     ];
     return allCreators.filter(c => c.tags.some(t => t.includes(query.toLowerCase())));
   }

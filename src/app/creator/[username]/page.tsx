@@ -24,6 +24,7 @@ import { PortfolioSection } from "@/components/portfolio/PortfolioSection";
 import { ProfileCard } from "@/components/ProfileCard";
 import { CreatorShare } from "@/components/CreatorShare";
 import { useTipNotifications } from "@/hooks/useTipNotifications";
+import { CampaignList } from "@/components/CampaignList";
 
 
 interface CreatorPageProps {
@@ -134,6 +135,12 @@ function CreatorPageClient({ username, profile }: { username: string; profile: a
           Amount and asset values are validated on blur and submit before calling the API.
         </p>
         <TipForm username={profile.username} defaultAssetCode={profile.preferredAsset} />
+      </div>
+
+      <div className="rounded-2xl border border-ink/10 bg-white/70 p-5 sm:p-6">
+        <h2 className="text-xl font-semibold text-ink mb-1">Matching Campaigns</h2>
+        <p className="text-sm text-ink/60 mb-4">Active campaigns that match tips for this creator.</p>
+        <CampaignList creatorUsername={profile.username} />
       </div>
 
       <div>

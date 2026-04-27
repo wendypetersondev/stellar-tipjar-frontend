@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { Navbar } from "@/components/Navbar";
+import { VoiceCommandButton } from "@/components/VoiceCommandButton";
 import { PerformanceMonitor } from "@/components/PerformanceMonitor";
 import { ReactQueryProvider } from "@/components/ReactQueryProvider";
 import { SkipToContent } from "@/components/SkipToContent";
@@ -100,6 +101,7 @@ export default function RootLayout({
               <UpdatePrompt />
               <PWAInitializer />
               <ToastContainer />
+              <VoiceCommandButton className="fixed bottom-6 right-6 z-50 shadow-lg" />
               </ToastProvider>
             </WebSocketProvider>
           </ReactQueryProvider>

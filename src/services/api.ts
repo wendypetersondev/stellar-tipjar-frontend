@@ -1,17 +1,19 @@
 import { RequestQueue } from "@/utils/requestQueue";
 import { RateLimiter } from "@/utils/rateLimiter";
+import type { TagWithCount } from "@/utils/categories";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const DEFAULT_RETRIES = 3;
-const RATE_LIMITER = new RateLimiter(10, 60_000);
-const REQUEST_QUEUE = new RequestQueue();
 
 export interface CreatorProfile {
   username: string;
   displayName: string;
   bio: string;
   preferredAsset: string;
+  categories: string[];
+  tags: string[];
 }
+
 
 export interface ApiRateLimitStatus {
   isLimited: boolean;
@@ -117,11 +119,12 @@ async function executeFetch<T>(path: string, init?: RequestInit, throttleMs?: nu
     throw new Error(`API request failed: ${response.status} ${response.statusText}`);
   }
 
-  return response.json() as Promise<T>;
+
+return response.json() as Promise<T>;
 }
 
 export function getApiRateLimitState() {
-  return RATE_LIMITER.getState();
+  return rateLimiter.getState();
 }
 
 /**
@@ -161,6 +164,129 @@ async function request<T>(path: string, init?: RequestInit, options?: RequestOpt
   return executeFetch<T>(path, init, throttleMs);
 }
 
+export interface CreatorStats {
+  totalAmountXlm: number;
+  tipCount: number;
+  uniqueSupporters: number;
+  topSupporters: { sender: string; totalAmount: number; tipCount: number }[];
+  tipHistory: { date: string; amount: number }[];
+}
+
+import type { LeaderboardEntry, LeaderboardsResponse, Period } from \"../types/leaderboards\";
+
+export async function getCreatorStats(username: string): Promise<CreatorStats> {
+  try {
+    return await request<CreatorStats>(`/creators/${username}/stats`, undefined, { critical: false });
+  } catch {
+    // Fallback mock data until backend is ready
+    return {
+      totalAmountXlm: 1234.5,
+      tipCount: 56,
+      uniqueSupporters: 42,
+      topSupporters: [
+        { sender: "stellar-fan", totalAmount: 300, tipCount: 8 },
+        { sender: "xlm-lover", totalAmount: 250, tipCount: 5 },
+        { sender: "crypto-alice", totalAmount: 180, tipCount: 12 },
+        { sender: "blockchainer", totalAmount: 120, tipCount: 3 },
+        { sender: "defi-bob", totalAmount: 90, tipCount: 6 },
+      ],
+      tipHistory: Array.from({ length: 30 }, (_, i) => ({
+        date: new Date(Date.now() - (29 - i) * 86_400_000).toISOString().slice(0, 10),
+        amount: Math.floor(Math.random() * 150 + 10),
+      })),
+    };
+  }
+}
+
+// ─── Tip Heatmap ─────────────────────────────────────────────────────────────
+
+export interface HeatmapTip {
+  date: string;
+  amount: number;
+}
+
+/**
+ * Returns a flat list of { date, amount } entries for the heatmap calendar.
+ * Multiple tips on the same day are returned as separate entries — the hook
+ * aggregates them by date.
+ */
+export async function getTipHeatmapData(
+  username: string,
+  years = 1,
+): Promise<HeatmapTip[]> {
+  try {
+    return await request<HeatmapTip[]>(
+      `/creators/${username}/tips/heatmap?years=${years}`,
+      undefined,
+      { critical: false },
+    );
+  } catch {
+    // Realistic mock: ~55% of days have activity, with occasional bursts
+    const now = Date.now();
+    const totalDays = years * 365;
+    const tips: HeatmapTip[] = [];
+
+    for (let i = 0; i < totalDays; i++) {
+      const date = new Date(now - (totalDays - 1 - i) * 86_400_000)
+        .toISOString()
+        .slice(0, 10);
+
+      if (Math.random() > 0.45) {
+        // 1–4 tips on active days
+        const tipCount = Math.ceil(Math.random() * 4);
+        for (let t = 0; t < tipCount; t++) {
+          tips.push({ date, amount: Math.round((Math.random() * 120 + 5) * 100) / 100 });
+        }
+      }
+    }
+
+    return tips;
+  }
+}
+
+export async function getLeaderboards(period: Period): Promise<LeaderboardsResponse> {
+  // Mock data - backend endpoint /leaderboards?period=${period}
+  const baseTippers = [
+    { name: \"Anonymous\", metric: 12500, change24h: 12.5 },
+    { name: \"stellar-max\", metric: 9800, change24h: 8.2 },
+    { name: \"xlm-whale\", metric: 7500, change24h: -2.1 },
+    { name: \"defi-donor\", metric: 6200, change24h: 15.3 },
+    { name: \"nft-supporter\", metric: 4800, change24h: 5.7 },
+    { name: \"crypto-angel\", metric: 4200, change24h: 22.1 },
+    { name: \"blockchain-backer\", metric: 3800, change24h: -1.8 },
+    { name: \"web3-warrior\", metric: 3400, change24h: 9.4 },
+    { name: \"Anonymous\", metric: 3100, change24h: 3.2 },
+    { name: \"tip-machine\", metric: 2900, change24h: 18.6 },
+  ];
+
+  const baseCreators = [
+    { name: \"stellar-dev\", metric: 15000, change24h: 6.8 },
+    { name: \"alice\", metric: 11200, change24h: 11.2 },
+    { name: \"nft-queen\", metric: 8900, change24h: -0.5 },
+    { name: \"defi-guru\", metric: 7600, change24h: 14.7 },
+    { name: \"art-star\", metric: 6400, change24h: 4.3 },
+    // ... more
+  ];
+
+  const baseBiggest = [
+    { name: \"xlm-whale\", metric: 1250, change24h: 0, avatarUrl: generateAvatarUrl('whale') },
+    { name: \"Anonymous\", metric: 850, change24h: 0 },
+    { name: \"crypto-angel\", metric: 620, change24h: 0 },
+    // biggest single tips
+  ];
+
+  // Scale by period
+  const scale = { '24h': 0.1, '7d': 0.4, '30d': 1, 'all': 2 }[period];
+  const entries = {
+    tippers: baseTippers.map((e, i) => ({ ...e, rank: i+1, metric: e.metric * scale, avatarUrl: generateAvatarUrl(e.name) })),
+    creators: baseCreators.map((e, i) => ({ ...e, rank: i+1, metric: e.metric * scale })),
+    biggest: baseBiggest.map((e, i) => ({ ...e, rank: i+1, metric: e.metric * scale })),
+  };
+
+  return entries as LeaderboardsResponse;
+}
+
+
 export async function getCreatorProfile(username: string): Promise<CreatorProfile> {
   try {
     return await request<CreatorProfile>(`/creators/${username}`, undefined, {
@@ -168,14 +294,95 @@ export async function getCreatorProfile(username: string): Promise<CreatorProfil
     });
   } catch {
     // Fallback makes local UI work before backend endpoints are available.
-    return {
+    const mockProfiles: Record<string, CreatorProfile> = {
+      'alice': {
+        username: 'alice',
+        displayName: 'Alice the Artist',
+        bio: 'Digital artist creating NFT masterpieces on Stellar.',
+        preferredAsset: 'XLM',
+        categories: ['art'],
+        tags: ['nft-art', 'digital-art', 'generative-art'],
+      },
+      'stellar-dev': {
+        username: 'stellar-dev',
+        displayName: 'Stellar Dev',
+        bio: 'Building the future of payments on Stellar.',
+        preferredAsset: 'XLM',
+        categories: ['tech'],
+        tags: ['soroban', 'smart-contracts', 'stellar'],
+      },
+      // ... more
+    };
+    return mockProfiles[username] || {
       username,
       displayName: `@${username}`,
       bio: "Creator bio will be loaded from the backend API.",
       preferredAsset: "XLM",
+      categories: [],
+      tags: [],
     };
   }
 }
+
+export async function getCategories(): Promise<string[]> {
+  try {
+    return await request<string[]>('/categories');
+  } catch {
+    return ['art', 'tech', 'community', 'education', 'music', 'gaming', 'crypto', 'nft', 'defi', 'dao'];
+  }
+}
+
+export async function getTagCloud(): Promise<TagWithCount[]> {
+  const mockTags = [
+    { tag: 'web3', count: 45 },
+    { tag: 'nft', count: 38 },
+    { tag: 'defi', count: 32 },
+    { tag: 'solidity', count: 28 },
+    { tag: 'stellar', count: 25 },
+    { tag: 'soroban', count: 22 },
+    { tag: 'digital-art', count: 20 },
+    { tag: 'dao', count: 18 },
+    { tag: 'rust', count: 16 },
+    { tag: 'typescript', count: 15 },
+  ];
+  try {
+    return await request<TagWithCount[]>('/tags/cloud');
+  } catch {
+    return mockTags;
+  }
+}
+
+export async function searchCreatorsByTag(query: string): Promise<CreatorProfile[]> {
+  try {
+    return await request<CreatorProfile[]>(`/creators/search/tag?q=${encodeURIComponent(query)}`);
+  } catch {
+    // Mock filter - create mock profiles here since mockProfiles is scoped to getCreatorProfile
+    const allCreators: CreatorProfile[] = [
+      {
+        username: 'alice',
+        displayName: 'Alice the Artist',
+        bio: 'Digital artist creating NFT masterpieces on Stellar.',
+        preferredAsset: 'XLM',
+        categories: ['art'],
+        tags: ['nft-art', 'digital-art', 'generative-art'],
+      },
+      {
+        username: 'stellar-dev',
+        displayName: 'Stellar Dev',
+        bio: 'Building the future of payments on Stellar.',
+        preferredAsset: 'XLM',
+        categories: ['tech'],
+        tags: ['soroban', 'smart-contracts', 'stellar'],
+      },
+      { username: 'pixelmaker', displayName: 'Pixel Maker', bio: 'Pixel art creator', preferredAsset: 'XLM', categories: ['art'], tags: ['pixel-art', 'nft'] },
+    ];
+    return allCreators.filter(c => c.tags.some(t => t.includes(query.toLowerCase())));
+  }
+}
+
+export interface CreatorWithCategoriesTags extends CreatorProfile {} // for type consistency
+
+// ─── Categories & Tags ──────────────────────────────────────────────────────
 
 export async function createTipIntent(payload: {
   username: string;
@@ -193,4 +400,349 @@ export async function createTipIntent(payload: {
       throttleMs: 500,
     },
   );
+}
+
+// ─── Comments ────────────────────────────────────────────────────────────────
+
+export interface Comment {
+  id: string;
+  username: string;
+  displayName: string;
+  avatarUrl: string;
+  body: string;
+  createdAt: string;
+  parentId: string | null;
+  /** Whether the comment is hidden by moderation */
+  hidden: boolean;
+  reactions: Record<string, number>; // emoji → count
+  /** Emoji reactions the current viewer has added */
+  myReactions: string[];
+}
+
+export interface CommentsPage {
+  comments: Comment[];
+  nextCursor: string | null;
+}
+
+function mockComments(creatorUsername: string): Comment[] {
+  const now = Date.now();
+  return [
+    {
+      id: "c1",
+      username: "stellar-fan",
+      displayName: "Stellar Fan",
+      avatarUrl: `https://api.dicebear.com/7.x/thumbs/svg?seed=stellar-fan`,
+      body: `Love your work, ${creatorUsername}! Keep it up 🚀`,
+      createdAt: new Date(now - 3_600_000).toISOString(),
+      parentId: null,
+      hidden: false,
+      reactions: { "❤️": 4, "🔥": 2 },
+      myReactions: [],
+    },
+    {
+      id: "c2",
+      username: "xlm-lover",
+      displayName: "XLM Lover",
+      avatarUrl: `https://api.dicebear.com/7.x/thumbs/svg?seed=xlm-lover`,
+      body: "Sent a small tip — you deserve it!",
+      createdAt: new Date(now - 7_200_000).toISOString(),
+      parentId: null,
+      hidden: false,
+      reactions: { "⭐": 3 },
+      myReactions: [],
+    },
+    {
+      id: "c3",
+      username: "crypto-alice",
+      displayName: "Crypto Alice",
+      avatarUrl: `https://api.dicebear.com/7.x/thumbs/svg?seed=crypto-alice`,
+      body: "Replying to say this community is awesome!",
+      createdAt: new Date(now - 1_800_000).toISOString(),
+      parentId: "c1",
+      hidden: false,
+      reactions: {},
+      myReactions: [],
+    },
+    {
+      id: "c4",
+      username: "spam-bot",
+      displayName: "Spam Bot",
+      avatarUrl: `https://api.dicebear.com/7.x/thumbs/svg?seed=spam-bot`,
+      body: "Buy cheap XLM here!!!",
+      createdAt: new Date(now - 500_000).toISOString(),
+      parentId: null,
+      hidden: true,
+      reactions: {},
+      myReactions: [],
+    },
+  ];
+}
+
+export async function getComments(
+  creatorUsername: string,
+  cursor?: string,
+): Promise<CommentsPage> {
+  try {
+    const path = `/creators/${creatorUsername}/comments${cursor ? `?cursor=${cursor}` : ""}`;
+    return await request<CommentsPage>(path, undefined, { critical: false });
+  } catch {
+    return { comments: mockComments(creatorUsername), nextCursor: null };
+  }
+}
+
+export async function postComment(payload: {
+  creatorUsername: string;
+  body: string;
+  parentId?: string;
+}): Promise<Comment> {
+  try {
+    return await request<Comment>(
+      `/creators/${payload.creatorUsername}/comments`,
+      { method: "POST", body: JSON.stringify({ body: payload.body, parentId: payload.parentId }) },
+      { critical: true, throttleMs: 500 },
+    );
+  } catch {
+    // Optimistic mock response
+    return {
+      id: `c-${Date.now()}`,
+      username: "you",
+      displayName: "You",
+      avatarUrl: `https://api.dicebear.com/7.x/thumbs/svg?seed=you`,
+      body: payload.body,
+      createdAt: new Date().toISOString(),
+      parentId: payload.parentId ?? null,
+      hidden: false,
+      reactions: {},
+      myReactions: [],
+    };
+  }
+}
+
+export async function toggleReaction(payload: {
+  commentId: string;
+  emoji: string;
+}): Promise<void> {
+  try {
+    await request(
+      `/comments/${payload.commentId}/reactions`,
+      { method: "POST", body: JSON.stringify({ emoji: payload.emoji }) },
+      { critical: false },
+    );
+  } catch {
+    // silently handled optimistically in the hook
+  }
+}
+
+export async function reportComment(commentId: string): Promise<void> {
+  try {
+    await request(
+      `/comments/${commentId}/report`,
+      { method: "POST" },
+      { critical: false },
+    );
+  } catch {
+    // best-effort
+  }
+}
+
+// ─── Calendar Events ──────────────────────────────────────────────────────────
+
+export type EventType = "stream" | "ama" | "workshop" | "release" | "other";
+export type RecurrenceRule = "NONE" | "DAILY" | "WEEKLY" | "MONTHLY";
+
+export interface CreatorEvent {
+  id: string;
+  creatorUsername: string;
+  title: string;
+  description: string;
+  type: EventType;
+  startIso: string;
+  endIso: string;
+  timezone: string;
+  location?: string;
+  url?: string;
+  recurrence: RecurrenceRule;
+  recurrenceCount?: number;
+}
+
+function mockEvents(creatorUsername: string): CreatorEvent[] {
+  const base = Date.now();
+  return [
+    {
+      id: "ev1",
+      creatorUsername,
+      title: "Live Coding Stream",
+      description: "Building a Stellar payment integration live.",
+      type: "stream",
+      startIso: new Date(base + 2 * 86_400_000).toISOString(),
+      endIso: new Date(base + 2 * 86_400_000 + 2 * 3_600_000).toISOString(),
+      timezone: "UTC",
+      url: "https://twitch.tv/example",
+      recurrence: "NONE",
+    },
+    {
+      id: "ev2",
+      creatorUsername,
+      title: "Weekly AMA",
+      description: "Ask me anything about Web3 and Stellar.",
+      type: "ama",
+      startIso: new Date(base + 7 * 86_400_000).toISOString(),
+      endIso: new Date(base + 7 * 86_400_000 + 3_600_000).toISOString(),
+      timezone: "UTC",
+      recurrence: "WEEKLY",
+      recurrenceCount: 8,
+    },
+  ];
+}
+
+export async function getCreatorEvents(creatorUsername: string): Promise<CreatorEvent[]> {
+  try {
+    return await request<CreatorEvent[]>(`/creators/${creatorUsername}/events`, undefined, {
+      critical: false,
+    });
+  } catch {
+    return mockEvents(creatorUsername);
+  }
+}
+
+export async function createCreatorEvent(
+  payload: Omit<CreatorEvent, "id">,
+): Promise<CreatorEvent> {
+  try {
+    return await request<CreatorEvent>(
+      `/creators/${payload.creatorUsername}/events`,
+      { method: "POST", body: JSON.stringify(payload) },
+      { critical: true, throttleMs: 500 },
+    );
+  } catch {
+    return { ...payload, id: `ev-${Date.now()}` };
+  }
+}
+
+export async function deleteCreatorEvent(eventId: string): Promise<void> {
+  try {
+    await request(`/events/${eventId}`, { method: "DELETE" }, { critical: false });
+  } catch {
+    // best-effort
+  }
+}
+
+// ─── Creator Analytics ───────────────────────────────────────────────────────
+
+export interface CreatorAnalytics {
+  totalTips: number;
+  supporters: number;
+  avgTip: number;
+  monthlyTips: number;
+  trendData: Array<{ date: string; amount: number }>;
+  revenueData: Array<{ date: string; gross: number; net: number; recurring: number; oneTime: number }>;
+  supportersData: Array<{ name: string; tips: number }>;
+  supporterInsights: Array<{ name: string; totalTips: number; tipCount: number; avgTip: number; lastTipDate: string }>;
+  distributionData: Array<{ name: string; value: number }>;
+  heatmapData: Array<{ date: string; value: number }>;
+  growthMetrics: {
+    revenueGrowth: number;
+    supporterGrowth: number;
+    repeatSupporterRate: number;
+    supporterRetentionRate: number;
+    avgTipGrowth?: number;
+    engagementScore?: number;
+  };
+  prevTotalTips: number;
+  prevSupporters: number;
+  prevAvgTip: number;
+  prevMonthlyTips: number;
+  prevGrowthMetrics?: {
+    revenueGrowth: number;
+    supporterGrowth: number;
+    repeatSupporterRate: number;
+    supporterRetentionRate: number;
+    avgTipGrowth?: number;
+    engagementScore?: number;
+  };
+}
+
+export async function getCreatorAnalytics(
+  username: string,
+  dateRange?: { start: Date; end: Date },
+): Promise<CreatorAnalytics> {
+  const params = new URLSearchParams();
+  if (dateRange) {
+    params.set("start", dateRange.start.toISOString());
+    params.set("end", dateRange.end.toISOString());
+  }
+  const query = params.size ? `?${params}` : "";
+  try {
+    return await request<CreatorAnalytics>(
+      `/creators/${username}/analytics${query}`,
+      undefined,
+      { critical: false },
+    );
+  } catch {
+    // Fallback mock until backend is ready
+    const now = Date.now();
+    const days = dateRange
+      ? Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / 86_400_000)
+      : 90;
+    const trendData = Array.from({ length: Math.min(days, 30) }, (_, i) => ({
+      date: new Date(now - (Math.min(days, 30) - 1 - i) * 86_400_000)
+        .toISOString()
+        .slice(0, 10),
+      amount: Math.floor(Math.random() * 200 + 20),
+    }));
+    const supporterInsights = [
+      { name: "stellar-fan", totalTips: 450, tipCount: 18, avgTip: 25, lastTipDate: trendData.at(-1)?.date ?? trendData[0]?.date ?? new Date().toISOString().slice(0, 10) },
+      { name: "xlm-lover", totalTips: 380, tipCount: 14, avgTip: 27.1, lastTipDate: trendData.at(-2)?.date ?? trendData[0]?.date ?? new Date().toISOString().slice(0, 10) },
+      { name: "crypto-alice", totalTips: 320, tipCount: 12, avgTip: 26.7, lastTipDate: trendData.at(-3)?.date ?? trendData[0]?.date ?? new Date().toISOString().slice(0, 10) },
+      { name: "blockchainer", totalTips: 290, tipCount: 10, avgTip: 29, lastTipDate: trendData.at(-4)?.date ?? trendData[0]?.date ?? new Date().toISOString().slice(0, 10) },
+      { name: "defi-bob", totalTips: 250, tipCount: 8, avgTip: 31.3, lastTipDate: trendData.at(-5)?.date ?? trendData[0]?.date ?? new Date().toISOString().slice(0, 10) },
+    ];
+
+    return {
+      totalTips: 12450,
+      supporters: 342,
+      avgTip: 36.4,
+      monthlyTips: 2890,
+      trendData,
+      revenueData: trendData.map((point) => ({
+        date: point.date,
+        gross: point.amount,
+        net: Math.round(point.amount * 0.92),
+        recurring: Math.round(point.amount * 0.35),
+        oneTime: Math.round(point.amount * 0.65),
+      })),
+      supportersData: supporterInsights.map(({ name, totalTips }) => ({ name, tips: totalTips })),
+      supporterInsights,
+      distributionData: [
+        { name: "Direct Tips", value: 45 },
+        { name: "Widget Tips", value: 30 },
+        { name: "Scheduled Tips", value: 15 },
+        { name: "Other", value: 10 },
+      ],
+      heatmapData: Array.from({ length: 365 }, (_, i) => ({
+        date: new Date(now - (364 - i) * 86_400_000).toISOString().slice(0, 10),
+        value: Math.random() > 0.55 ? Math.floor(Math.random() * 180 + 5) : 0,
+      })),
+      growthMetrics: {
+        revenueGrowth: 15.3,
+        supporterGrowth: 14.8,
+        repeatSupporterRate: 61.4,
+        supporterRetentionRate: 72.1,
+        avgTipGrowth: 6.7,
+        engagementScore: 78.2,
+      },
+      prevGrowthMetrics: {
+        revenueGrowth: 9.1,
+        supporterGrowth: 8.4,
+        repeatSupporterRate: 54.2,
+        supporterRetentionRate: 65.8,
+        avgTipGrowth: 3.2,
+        engagementScore: 61.5,
+      },
+      prevTotalTips: 10800,
+      prevSupporters: 298,
+      prevAvgTip: 34.1,
+      prevMonthlyTips: 2450,
+    };
+  }
 }

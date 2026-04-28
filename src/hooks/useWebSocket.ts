@@ -1,54 +1,36 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { io, Socket } from "socket.io-client";
+import { WebSocketClient } from "@/lib/websocket/client";
 
-export type SocketStatus = "connecting" | "connected" | "disconnected" | "error";
+export type WsStatus = "connecting" | "connected" | "disconnected";
 
-export interface UseWebSocketOptions {
-  /** The WebSocket server URL. If falsy, the hook does nothing. */
+interface UseWebSocketOptions {
   url?: string;
 }
 
-export interface UseWebSocketReturn {
-  /** Stable ref to the active socket. Access via socketRef.current inside effects. */
-  socketRef: React.MutableRefObject<Socket | null>;
-  status: SocketStatus;
-}
-
-export function useWebSocket({ url }: UseWebSocketOptions): UseWebSocketReturn {
-  const socketRef = useRef<Socket | null>(null);
-  const [status, setStatus] = useState<SocketStatus>(
-    url ? "connecting" : "disconnected"
-  );
+export function useWebSocket(options?: UseWebSocketOptions) {
+  const url = options?.url ?? process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000/ws";
+  const clientRef = useRef<WebSocketClient | null>(null);
+  const [status, setStatus] = useState<WsStatus>("disconnected");
 
   useEffect(() => {
     if (!url) return;
 
-    const newSocket = io(url, {
-      transports: ["websocket"],
-      reconnectionAttempts: 10,
-      reconnectionDelay: 2000,
-      reconnectionDelayMax: 30000,
-    });
+    const client = new WebSocketClient(url);
+    clientRef.current = client;
+    setStatus("connecting");
 
-    // Store in ref – no setState here, so no cascading-render lint violation
-    socketRef.current = newSocket;
-
-    newSocket.on("connect", () => setStatus("connected"));
-    newSocket.on("disconnect", () => setStatus("disconnected"));
-    newSocket.on("connect_error", () => setStatus("error"));
-    newSocket.on("reconnect", () => setStatus("connected"));
-    newSocket.on("reconnect_attempt", () => setStatus("connecting"));
+    client.connect()
+      .then(() => setStatus("connected"))
+      .catch(() => setStatus("disconnected"));
 
     return () => {
-      newSocket.disconnect();
-      socketRef.current = null;
+      client.disconnect();
+      clientRef.current = null;
       setStatus("disconnected");
     };
   }, [url]);
 
-  return { socketRef, status };
+  return { clientRef, status };
 }
-
-

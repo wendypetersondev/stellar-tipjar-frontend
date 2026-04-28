@@ -1,5 +1,9 @@
 # Stellar Tip Jar Frontend
 
+[![CI](https://github.com/Dami24-hub/stellar-tipjar-frontend/actions/workflows/ci.yml/badge.svg)](https://github.com/Dami24-hub/stellar-tipjar-frontend/actions/workflows/ci.yml)
+[![E2E Tests](https://github.com/Dami24-hub/stellar-tipjar-frontend/actions/workflows/test.yml/badge.svg)](https://github.com/Dami24-hub/stellar-tipjar-frontend/actions/workflows/test.yml)
+[![Deploy](https://github.com/Dami24-hub/stellar-tipjar-frontend/actions/workflows/deploy.yml/badge.svg)](https://github.com/Dami24-hub/stellar-tipjar-frontend/actions/workflows/deploy.yml)
+
 A modern, open-source frontend starter for tipping creators with the Stellar network.
 
 This repository uses **Next.js (App Router)**, **TypeScript**, and **TailwindCSS** with a scalable folder structure designed for collaboration.
